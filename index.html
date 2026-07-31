@@ -3,45 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Access - User Agent Generator</title>
+    <title>Premium Access - Arafat's Tools</title>
+    <!-- Tailwind CSS for Modern UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Base Background and alignment */
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
-        /* Login Box Design */
-        .login-box { background: #1e293b; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; width: 350px; color: white; }
-        h2 { margin-bottom: 5px; }
-        input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #334155; border-radius: 5px; font-size: 16px; outline: none; background: #0f172a; color: white; box-sizing: border-box; }
-        input:focus { border-color: #38bdf8; }
-        button { width: 100%; padding: 12px; background-color: #0ea5e9; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.3s; box-sizing: border-box; }
-        button:hover { background-color: #0284c7; }
-        #errorMsg { margin-top: 15px; font-weight: bold; font-size: 14px; color: #ef4444; }
+        .fade-in { animation: fadeIn 0.6s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         
-        /* Full Screen Iframe Area */
-        #iframeArea { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; background: #0f172a; }
+        #iframeArea { display: none; }
         iframe { width: 100%; height: 100%; border: none; display: block; }
     </style>
 </head>
-<body>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center m-0 p-0">
 
-    <!-- Key এন্টার করার ফর্ম -->
-    <div class="login-box" id="loginArea">
-        <h2>Premium Access</h2>
-        <p style="color: #94a3b8; font-size: 14px;">Please enter your access key</p>
-        <input type="text" id="userKey" placeholder="Enter your secret key">
-        <button id="accessBtn">Unlock Tool</button>
-        <p id="errorMsg"></p>
+    <!-- Login Box -->
+    <div id="loginArea" class="bg-slate-800 p-10 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700 fade-in m-4">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-white mb-2">Premium Access</h2>
+            <p class="text-slate-400 text-sm">Please enter your secret access key to unlock the tool.</p>
+        </div>
+        
+        <div class="space-y-5">
+            <div>
+                <input type="text" id="userKey" placeholder="Enter your access key..." 
+                       class="w-full px-5 py-4 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 uppercase tracking-wider transition-all shadow-inner">
+            </div>
+            
+            <button id="accessBtn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg hover:shadow-sky-500/30 transition-all duration-300">
+                Unlock Tool
+            </button>
+            
+            <p id="errorMsg" class="text-red-400 text-sm font-semibold text-center mt-3 h-5"></p>
+        </div>
     </div>
 
-    <!-- ফুল-স্ক্রিন Iframe এরিয়া -->
-    <div id="iframeArea">
-        <iframe src="https://useragent-generator-pro.netlify.app/" id="myIframe"></iframe>
+    <!-- Full-Screen Iframe Area -->
+    <div id="iframeArea" class="fixed inset-0 w-full h-full bg-slate-900 z-50">
+        <iframe src="https://useragent-generator-pro.netlify.app/" id="myIframe" allow="clipboard-read; clipboard-write"></iframe>
     </div>
 
-    <!-- Firebase SDK (Modular) -->
+    <!-- Firebase SDK & Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDlY-Jrvod035zBBDa_birWnsp-YkAN9Oc",
@@ -56,36 +62,101 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        document.getElementById('accessBtn').onclick = async () => {
-            const key = document.getElementById('userKey').value;
-            const errorMsg = document.getElementById('errorMsg');
-            const btn = document.getElementById('accessBtn');
+        const accessBtn = document.getElementById('accessBtn');
+        const userKeyInput = document.getElementById('userKey');
+        const errorMsg = document.getElementById('errorMsg');
+        const loginArea = document.getElementById('loginArea');
+        const iframeArea = document.getElementById('iframeArea');
 
-            if(!key) {
-                errorMsg.innerText = "দয়া করে Key দিন!";
-                return;
+        function getDeviceID() {
+            let deviceId = localStorage.getItem("my_device_id");
+            if (!deviceId) {
+                deviceId = 'dev_' + Math.random().toString(36).substr(2, 10) + Date.now();
+                localStorage.setItem("my_device_id", deviceId);
             }
+            return deviceId;
+        }
 
+        // পেজ লোড হওয়ার সাথে সাথে চেক করবে আগে থেকে লগিন করা আছে কি না!
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem("saved_access_key");
+            if (savedKey) {
+                userKeyInput.value = savedKey;
+                processLogin(savedKey, true); // true = auto login mode
+            }
+        });
+
+        // ম্যানুয়াল লগিন বাটন ক্লিক
+        accessBtn.onclick = () => {
+            const key = userKeyInput.value.trim().toUpperCase();
+            if(!key) { 
+                errorMsg.innerText = "Please enter an access key!"; 
+                return; 
+            }
+            processLogin(key, false);
+        };
+
+        // মূল লগিন প্রসেস ফাংশন
+        async function processLogin(key, isAutoLogin) {
             try {
-                btn.innerText = "Checking...";
+                accessBtn.innerText = isAutoLogin ? "Restoring Session..." : "Verifying...";
+                accessBtn.classList.add("opacity-75", "cursor-not-allowed");
                 errorMsg.innerText = "";
-
+                
+                const myDeviceId = getDeviceID();
                 const docRef = doc(db, "allowed_keys", key);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists() && docSnap.data().valid === true) {
-                    // Key সঠিক হলে Iframe ফুল স্ক্রিনে ওপেন হবে
-                    document.getElementById('loginArea').style.display = "none";
-                    document.getElementById('iframeArea').style.display = "block";
+                    const data = docSnap.data();
+                    const now = new Date();
+                    
+                    // মেয়াদ চেক
+                    if (data.expiryDate) {
+                        const expiryDate = data.expiryDate.toDate();
+                        if (now > expiryDate) {
+                            handleError("This access key has expired!");
+                            return;
+                        }
+                    }
+
+                    // ডিভাইস চেক
+                    const maxDevices = data.maxDevices || 1;
+                    const deviceIds = data.deviceIds || [];
+
+                    if (deviceIds.includes(myDeviceId)) {
+                        loginSuccess(key);
+                    } else if (deviceIds.length < maxDevices) {
+                        await updateDoc(docRef, { deviceIds: arrayUnion(myDeviceId) });
+                        loginSuccess(key);
+                    } else {
+                        handleError(`Device limit reached! (Max: ${maxDevices})`);
+                    }
+
                 } else {
-                    errorMsg.innerText = "ভুল Key! দয়া করে সঠিক Key দিন।";
-                    btn.innerText = "Unlock Tool";
+                    handleError(isAutoLogin ? "Session expired! Please login again." : "Invalid key! Please check and try again.");
                 }
             } catch(error) {
-                console.error("Error checking key: ", error);
-                errorMsg.innerText = "সার্ভার এরর! ইন্টারনেট কানেকশন চেক করুন।";
-                btn.innerText = "Unlock Tool";
+                console.error("Error:", error);
+                handleError("Connection error. Please try again.");
             }
+        }
+
+        // লগিন সফল হলে যা হবে
+        function loginSuccess(key) {
+            localStorage.setItem("saved_access_key", key); // Key সেভ করে রাখলো
+            loginArea.style.display = "none";
+            iframeArea.style.display = "block";
+            iframeArea.classList.add('fade-in');
+        }
+
+        // লগিনে সমস্যা হলে যা হবে
+        function handleError(msg) {
+            localStorage.removeItem("saved_access_key"); // ভুল Key রিমুভ করে দিলো
+            errorMsg.innerText = msg;
+            accessBtn.innerText = "Unlock Tool";
+            accessBtn.classList.remove("opacity-75", "cursor-not-allowed");
+            loginArea.style.display = "block";
         }
     </script>
 </body>
